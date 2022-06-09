@@ -1,3 +1,5 @@
+-- psql zach -h 127.0.0.1 -d qa -f ETL.sql
+
 DROP TABLE IF EXISTS questions;
 CREATE TABLE questions (
   question_id SERIAL PRIMARY KEY,

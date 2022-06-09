@@ -9,23 +9,22 @@ app.use(express.json());
 
 const test = async () => {
   try {
-    await sequelize.query(`INSERT INTO questions (product_id, question_body, question_date, asker_name, email, reported, question_helpfulness) VALUES (1, '${'test'}', 0, '${'name'}', '${'email'}', 0, 0)`);
-    const [data, meta] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${1} AND reported=0`);
-    console.log(data);
+    await sequelize.query(`UPDATE questions SET reported = 1 WHERE question_id=${1}`);
+    console.log('helpful');
   } catch (err) {
     console.log('fail', err);
   }
 };
-test();
+// test();
 
 app.get('/qa/questions', async (req, res) => {
   // TODO format data and date better
   try {
-    const { product_id, page, count } = req.params;
-    const [questions, meta] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0`);
+    const { product_id, page, count } = req.query;
+    const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0`);
     const getAnswer = async (j) => {
-      const [answers, metadata] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
-      const [data, asdf] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
+      const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
+      const [data] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
       data.forEach((photo) => {
         for (let i = 0; i < answers.length; i += 1) {
           if (answers[i].id === photo.answer_id) {
@@ -69,47 +68,15 @@ app.get('/qa/questions', async (req, res) => {
 //             "answerer_name": "Seller",
 //             "helpfulness": 4,
 //             "photos": []
-//             // ...
-//           }
-//         }
-//       },
-//       {
-//         "question_id": 38,
-//         "question_body": "How long does it last?",
-//         "question_date": "2019-06-28T00:00:00.000Z",
-//         "asker_name": "funnygirl",
-//         "question_helpfulness": 2,
-//         "reported": false,
-//         "answers": {
-//           70: {
-//             "id": 70,
-//             "body": "Some of the seams started splitting the first time I wore it!",
-//             "date": "2019-11-28T00:00:00.000Z",
-//             "answerer_name": "sillyguy",
-//             "helpfulness": 6,
-//             "photos": [],
-//           },
-//           78: {
-//             "id": 78,
-//             "body": "9 lives",
-//             "date": "2019-11-12T00:00:00.000Z",
-//             "answerer_name": "iluvdogz",
-//             "helpfulness": 31,
-//             "photos": [],
-//           }
-//         }
-//       },
-//       // ...
-//   ]
-// }
 
 // TODO GET /qa/questions/:question_id/answers params(*question_id) queryparams(page=1, count=5)
-app.get('/qa/questions', async (req, res) => {
+app.get('/qa/questions/:question_id/answers', async (req, res) => {
   try {
     let result;
-    let { question_id, page, count } = req.params;
-    const [answers, metadata] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0`);
-    const [photos, asdf] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
+    let { question_id } = req.params;
+    let { page, count } = req.query;
+    const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0`);
+    const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
     photos.forEach((photo) => {
       for (let i = 0; i < answers.length; i += 1) {
         if (answers[i].id === photo.answer_id) {
@@ -121,11 +88,12 @@ app.get('/qa/questions', async (req, res) => {
         }
       }
     });
+
     if (!count) {
       count = 5;
     }
     if (!page) {
-      result = answers.slice(0, count - 1);
+      result = answers.slice(0, count);
     } else {
       result = answers.slice((page - 1) * count, (count * page) - 1);
     }
@@ -137,21 +105,85 @@ app.get('/qa/questions', async (req, res) => {
 
 // TODO POST /qa/questions params(body, name, email, product_id)
 app.post('/qa/questions', async (req, res) => {
-  const {
-    body, name, email, product_id,
-  } = req.body;
-  await sequelize.query(`INSERT INTO questions (product_id, question_body, question_date, asker_name, email, reported, question_helpfulness) VALUES (${product_id}, '${body}', 0, '${name}', '${email}', 0, 0)`);
+  try {
+    const {
+      body, name, email, product_id,
+    } = req.body;
+    await sequelize.query(`INSERT INTO questions (product_id, question_body, question_date, asker_name, email, reported, question_helpfulness) VALUES (${product_id}, '${body}', 0, '${name}', '${email}', 0, 0)`);
+    res.status(201).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
+// ? need to test below this
+// TODO POST/qa/questions/:question_id/answers param(question_id) body(body, name, email, photos)
+app.post('/qa/questions/:question_id/answers', async (req, res) => {
+  try {
+    const {
+      body, name, email, photos,
+    } = req.body;
+    const { question_id } = req.params;
+    const id = await sequelize.query(`INSERT INTO answers VALUES (DEFAULT, ${question_id}, '${body}', '0', '${name}', '${email}', 0, 0) RETURNING id`);
+    if (photos) {
+      photos.forEach(async (photo) => {
+        await sequelize.query(`INSERT INTO photos VALUES (DEFAULT, ${id[0][0].id}, '${photo}')`);
+      });
+    }
+    res.status(201).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
 });
 
-// TODO POST/qa/questions/:question_id/answers param(question_id) body(body, name, email, photos)
-
 // TODO PUT /qa/questions/:question_id/helpful param(question_id)
+app.put('/qa/questions/:question_id/helpful', async (req, res) => {
+  try {
+    const { question_id } = req.params;
+    const [helpful] = await sequelize.query(`SELECT question_helpfulness FROM questions WHERE question_id = ${question_id}`);
+    await sequelize.query(`UPDATE questions SET question_helpfulness = ${helpful[0].question_helpfulness + 1} WHERE question_id=${question_id}`);
+    res.status(202).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
 
 // TODO PUT /qa/questions/:question_id/report param(question_id)
+app.put('/qa/questions/:question_id/report', async (req, res) => {
+  try {
+    const { question_id } = req.params;
+    await sequelize.query(`UPDATE questions SET reported = 1 WHERE question_id=${question_id}`);
+    res.status(202).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
 
 // TODO PUT /qa/answers/:answer_id/helpful param(answer_id)
+app.put('/qa/answers/:answer_id/helpful', async (req, res) => {
+  try {
+    const { answer_id } = req.params;
+    const [helpful] = await sequelize.query(`SELECT helpfulness FROM answers WHERE id = ${answer_id}`);
+    await sequelize.query(`UPDATE answers SET helpfulness = ${helpful[0].helpfulness + 1} WHERE id=${answer_id}`);
+    res.status(202).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
 
 // TODO PUT /qa/answers/:answer_id/report param(answer_id)
+app.put('/qa/answers/:answer_id/report', async (req, res) => {
+  try {
+    const { answer_id } = req.params;
+    await sequelize.query(`UPDATE answers SET reported = 1 WHERE id=${answer_id}`);
+    res.status(202).send();
+  } catch (err) {
+    res.status(404).send(err);
+  }
+});
 
 // ALTER TABLE `answers` ADD FOREIGN KEY (question) REFERENCES `Questions` (`question_id`);
 // ALTER TABLE `answers` ADD FOREIGN KEY (photos) REFERENCES `answers_photos` (`id`);
+
+app.listen(3000, () => {
+  console.log(`listening on port 3000`);
+});
