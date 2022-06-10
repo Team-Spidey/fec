@@ -31,9 +31,10 @@ app.get('/qa/questions', async (req, res) => {
     }
     const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0 LIMIT ${count} OFFSET ${page}`);
     const getAnswer = async (j) => {
+      // TODO change reqeusts here to a Promise.all then change data to imporve query speed
       const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
-      const [data] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
-      data.forEach((photo) => {
+      const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
+      photos.forEach((photo) => {
         for (let i = 0; i < answers.length; i += 1) {
           if (answers[i].id === photo.answer_id) {
             if (answers[i].photos) {
