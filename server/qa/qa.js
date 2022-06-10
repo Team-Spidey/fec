@@ -22,6 +22,10 @@ app.get('/qa/questions', async (req, res) => {
   try {
     const { product_id, page, count } = req.query;
     const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0`);
+    // for (let i = 0; i < questions.length; i += 1) {
+    //   const newDate = new Date(+questions[i].question_date).toISOString();
+    //   //console.log(newDate);
+    // }
     const getAnswer = async (j) => {
       const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
       const [data] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
@@ -36,8 +40,12 @@ app.get('/qa/questions', async (req, res) => {
           }
         }
       });
+      const newDate = await new Date(+questions[j].question_date).toISOString();
+      questions[j].question_date = newDate;
       questions[j].answers = {};
-      answers.forEach((answer) => {
+      answers.forEach((answer, i) => {
+        const date = new Date(+answer.date).toISOString();
+        answers[i].date = date;
         questions[j].answers[answer.id] = answer;
       });
     };
@@ -73,7 +81,7 @@ app.get('/qa/questions', async (req, res) => {
 app.get('/qa/questions/:question_id/answers', async (req, res) => {
   try {
     let result;
-    let { question_id } = req.params;
+    const { question_id } = req.params;
     let { page, count } = req.query;
     const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0`);
     const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
@@ -109,7 +117,7 @@ app.post('/qa/questions', async (req, res) => {
     const {
       body, name, email, product_id,
     } = req.body;
-    await sequelize.query(`INSERT INTO questions (product_id, question_body, question_date, asker_name, email, reported, question_helpfulness) VALUES (${product_id}, '${body}', 0, '${name}', '${email}', 0, 0)`);
+    await sequelize.query(`INSERT INTO questions (product_id, question_body, question_date, asker_name, email, reported, question_helpfulness) VALUES (${product_id}, '${body}', DEFAULT, '${name}', '${email}', 0, 0)`);
     res.status(201).send();
   } catch (err) {
     res.status(404).send(err);
@@ -185,5 +193,5 @@ app.put('/qa/answers/:answer_id/report', async (req, res) => {
 // ALTER TABLE `answers` ADD FOREIGN KEY (photos) REFERENCES `answers_photos` (`id`);
 
 app.listen(3000, () => {
-  console.log(`listening on port 3000`);
+  console.log('listening on port 3000');
 });
