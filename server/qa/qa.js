@@ -7,25 +7,29 @@ const sequelize = new Sequelize(process.env.pgurl);
 
 app.use(express.json());
 
-const test = async () => {
-  try {
-    await sequelize.query(`UPDATE questions SET reported = 1 WHERE question_id=${1}`);
-    console.log('helpful');
-  } catch (err) {
-    console.log('fail', err);
-  }
-};
+// const test = async () => {
+//   try {
+//     await sequelize.query(`UPDATE questions SET reported = 1 WHERE question_id=${1}`);
+//     console.log('helpful');
+//   } catch (err) {
+//     console.log('fail', err);
+//   }
+// };
 // test();
 
 app.get('/qa/questions', async (req, res) => {
   // TODO format data and date better
   try {
-    const { product_id, page, count } = req.query;
-    const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0`);
-    // for (let i = 0; i < questions.length; i += 1) {
-    //   const newDate = new Date(+questions[i].question_date).toISOString();
-    //   //console.log(newDate);
-    // }
+    let { product_id, page, count } = req.query;
+    if (!count) {
+      count = 5;
+    }
+    if (!page) {
+      page = 0;
+    } else {
+      page = (page - 1) * count;
+    }
+    const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0 LIMIT ${count} OFFSET ${page}`);
     const getAnswer = async (j) => {
       const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
       const [data] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
@@ -46,8 +50,18 @@ app.get('/qa/questions', async (req, res) => {
       answers.forEach((answer, i) => {
         const date = new Date(+answer.date).toISOString();
         answers[i].date = date;
-        questions[j].answers[answer.id] = answer;
+        const result = {
+          id: answer.id,
+          body: answer.body,
+          date: answer.date,
+          answerer_name: answer.answerer_name,
+          helpfulness: answer.helpfulness,
+          photos: answer.photos || [],
+        };
+        questions[j].answers[answer.id] = result;
       });
+      questions[j].reported = false;
+      questions[j].email = undefined;
     };
     const arr = [...Array(questions.length)].map((_, index) => getAnswer(index));
     await Promise.all(arr);
@@ -59,31 +73,20 @@ app.get('/qa/questions', async (req, res) => {
 });
 // TODO GET /qa/questions params(*product_id, page=1, count=5)
 
-// {
-//   "product_id": "5",
-//   "results": [{
-//         "question_id": 37,
-//         "question_body": "Why is this product cheaper here than other sites?",
-//         "question_date": "2018-10-18T00:00:00.000Z",
-//         "asker_name": "williamsmith",
-//         "question_helpfulness": 4,
-//         "reported": false,
-//         "answers": {
-//           68: {
-//             "id": 68,
-//             "body": "We are selling it here without any markup from the middleman!",
-//             "date": "2018-08-18T00:00:00.000Z",
-//             "answerer_name": "Seller",
-//             "helpfulness": 4,
-//             "photos": []
-
 // TODO GET /qa/questions/:question_id/answers params(*question_id) queryparams(page=1, count=5)
 app.get('/qa/questions/:question_id/answers', async (req, res) => {
   try {
-    let result;
     const { question_id } = req.params;
     let { page, count } = req.query;
-    const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0`);
+    if (!count) {
+      count = 5;
+    }
+    if (!page) {
+      page = 0;
+    } else {
+      page = (page - 1) * count;
+    }
+    const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0 LIMIT ${count} OFFSET ${page}`);
     const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
     photos.forEach((photo) => {
       for (let i = 0; i < answers.length; i += 1) {
@@ -96,16 +99,7 @@ app.get('/qa/questions/:question_id/answers', async (req, res) => {
         }
       }
     });
-
-    if (!count) {
-      count = 5;
-    }
-    if (!page) {
-      result = answers.slice(0, count);
-    } else {
-      result = answers.slice((page - 1) * count, (count * page) - 1);
-    }
-    res.status(200).send(result);
+    res.status(200).send(answers);
   } catch (err) {
     res.status(500).send(err);
   }
