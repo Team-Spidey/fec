@@ -36,5 +36,3 @@ CREATE TABLE photos (
 \COPY answers FROM '/Users/zacaharykessler/Downloads/answers.csv' DELIMITER ',' CSV HEADER;
 
 \COPY photos FROM '/Users/zacaharykessler/Downloads/answers_photos.csv' DELIMITER ',' CSV HEADER;
-
-ALTER SEQUENCE questions_question_id_seq RESTART WITH (SELECT MAX(question_id) FROM questions);
