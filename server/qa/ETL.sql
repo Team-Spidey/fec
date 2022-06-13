@@ -36,3 +36,6 @@ CREATE TABLE photos (
 \COPY answers FROM '/Users/zacaharykessler/Downloads/answers.csv' DELIMITER ',' CSV HEADER;
 
 \COPY photos FROM '/Users/zacaharykessler/Downloads/answers_photos.csv' DELIMITER ',' CSV HEADER;
+
+-- ALTER TABLE answers ADD FOREIGN KEY (question_id) REFERENCES questions (question_id);
+-- ALTER TABLE answers ADD FOREIGN KEY (photos) REFERENCES photos (id);

@@ -9,8 +9,8 @@ app.use(express.json());
 
 // const test = async () => {
 //   try {
-//     await sequelize.query(`UPDATE questions SET reported = 1 WHERE question_id=${1}`);
-//     console.log('helpful');
+//     const [data] = await sequelize.query(`SELECT json_agg(json_build_object(id,  json_build_object('body', body))) from answers WHERE question_id=1`);
+//     console.log(data[0].json_agg);
 //   } catch (err) {
 //     console.log('fail', err);
 //   }
@@ -20,6 +20,7 @@ app.use(express.json());
 app.get('/qa/questions', async (req, res) => {
   // TODO format data and date better
   try {
+    const first = Number(new Date())
     let { product_id, page, count } = req.query;
     if (!count) {
       count = 5;
@@ -31,9 +32,8 @@ app.get('/qa/questions', async (req, res) => {
     }
     const [questions] = await sequelize.query(`SELECT * FROM questions WHERE product_id=${product_id} AND reported=0 LIMIT ${count} OFFSET ${page}`);
     const getAnswer = async (j) => {
-      // TODO change reqeusts here to a Promise.all then change data to imporve query speed
-      const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
-      const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
+      const [answers] = await sequelize.query(`SELECT id, body, date, answerer_name, helpfulness FROM answers WHERE question_id=${questions[j].question_id} AND reported=0`);
+      const [photos] = await sequelize.query(`SELECT photos.url FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=${questions[j].question_id}`);
       photos.forEach((photo) => {
         for (let i = 0; i < answers.length; i += 1) {
           if (answers[i].id === photo.answer_id) {
@@ -67,6 +67,7 @@ app.get('/qa/questions', async (req, res) => {
     const arr = [...Array(questions.length)].map((_, index) => getAnswer(index));
     await Promise.all(arr);
     const result = { product_id, results: questions };
+    console.log('end', Number(new Date()) - first)
     res.status(200).send(result);
   } catch (err) {
     res.status(404).send(err);
@@ -88,7 +89,7 @@ app.get('/qa/questions/:question_id/answers', async (req, res) => {
       page = (page - 1) * count;
     }
     const [answers] = await sequelize.query(`SELECT * FROM answers WHERE question_id=${question_id} AND reported=0 LIMIT ${count} OFFSET ${page}`);
-    const [photos] = await sequelize.query('SELECT * FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=1');
+    const [photos] = await sequelize.query(`SELECT photos.url FROM photos INNER JOIN answers ON photos.answer_id=answers.id WHERE question_id=${question_id}`);
     photos.forEach((photo) => {
       for (let i = 0; i < answers.length; i += 1) {
         if (answers[i].id === photo.answer_id) {

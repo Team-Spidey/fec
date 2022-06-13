@@ -12,6 +12,7 @@ const ETL = async () => {
   const photoNum = await sequelize.query('SELECT MAX(id) FROM photos');
   await sequelize.query(`ALTER SEQUENCE photos_id_seq RESTART WITH ${photoNum[0][0].max + 1}`);
   await sequelize.query('CREATE INDEX aindex ON questions (product_id)');
+  await sequelize.query('CREATE INDEX rindex ON questions (reported)');
   await sequelize.query('CREATE INDEX bindex ON answers (question_id)');
   await sequelize.query('CREATE INDEX paindex ON photos (answer_id)');
 };
