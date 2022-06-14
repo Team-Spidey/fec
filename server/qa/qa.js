@@ -16,6 +16,9 @@ app.use(express.json());
 //   }
 // };
 // test();
+app.get(`/${process.env.LOADER_IO}/`, (req, res) => {
+  res.send(`${process.env.LOADER_IO}`);
+});
 
 app.get('/qa/questions', async (req, res) => {
   // TODO format data and date better
